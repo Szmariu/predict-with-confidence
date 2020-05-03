@@ -15,3 +15,23 @@ library(reshape2) # melting
 orange = "#FFB400" # nice color for plotting
 
 data <- read_excel('data/default of credit card clients.xls', skip = 1)
+
+# Visualize each variable
+# Takes a second to display
+data %>% 
+  melt() %>%
+  filter(variable != 'ID') %>%
+  ggplot(aes(x = value)) + 
+  stat_density(color = orange, fill = orange, alpha = 0.5) + 
+  facet_wrap(~variable, scales = "free") + 
+  labs(title = 'Dataset overview')
+
+# Visualize the main variable
+data %>%
+  ggplot(aes(x = LIMIT_BAL)) +
+  stat_density(color = orange, fill = orange, alpha = 0.5) +
+  labs(
+    title = 'Credit limit in NT dollars',
+    x = 'Crediti limit',
+    y = 'Density'
+  )
