@@ -8,16 +8,74 @@
 # X12-X17: Amount of bill statement (NT dollar). X12 = amount of bill statement in September, 2005; X13 = amount of bill statement in August, 2005; . . .; X17 = amount of bill statement in April, 2005.
 # X18-X23: Amount of previous payment (NT dollar). X18 = amount paid in September, 2005; X19 = amount paid in August, 2005; . . .;X23 = amount paid in April, 2005.
 
+# Variables - easier to read
+# LIMIT_BAL - how much credit they were given
+# PAY_2 - in month two, by how many months are they behind with payment. Can be negative if they overpaid
+# BILL_ATM2 - in month two, how much total debt is left to pay
+# PAY_ATM2 - in month two, how much they have to pay for that month
+# didDefault - did they default in the next month? Target variable!
+
+# Libraries
 library(tidyverse) # pipes, filtering etc.
 library(readxl) # importing excel files
 library(ggplot2) # plots
 library(reshape2) # melting
 orange = "#FFB400" # nice color for plotting
 
+# Data import
 data <- read_excel('data/default of credit card clients.xls', skip = 1)
 
-# Visualize each variable
-# Takes a second to display
+# Data wrangling
+
+## Rename target variable
+data <- data %>%
+  rename('didDefault' = 'default payment next month')
+
+## Remove outliers and incorrect observations
+## Overall, about 50% of observations are dropped
+## The quality should be much better
+## The proportions of the target variable did not change significantly
+data <- data %>%
+  filter(LIMIT_BAL < 700000,
+         EDUCATION > 0, EDUCATION < 4,
+         MARRIAGE > 0, MARRIAGE < 3,
+         PAY_0 < 4,
+         PAY_2 < 4,
+         PAY_3 < 4,
+         PAY_4 < 4,
+         PAY_5 < 4,
+         PAY_6 < 4,
+         BILL_AMT1 > 0, BILL_AMT1 < 200000,
+         BILL_AMT2 > 0, BILL_AMT2 < 200000,
+         BILL_AMT3 > 0, BILL_AMT3 < 200000,
+         BILL_AMT4 > 0, BILL_AMT4 < 200000,
+         BILL_AMT5 > 0, BILL_AMT5 < 200000,
+         BILL_AMT6 > 0, BILL_AMT6 < 200000,
+         PAY_AMT1 < 10000,
+         PAY_AMT2 < 10000,
+         PAY_AMT3 < 10000,
+         PAY_AMT4 < 10000,
+         PAY_AMT5 < 10000,
+         PAY_AMT6 < 10000
+         )
+
+## Create dummy variables
+data <- data %>%
+  mutate(
+    isFemale = ifelse(SEX == 2, 1, 0),    
+    education_high_school = ifelse(EDUCATION == 3, 1, 0), 
+    education_university = ifelse(EDUCATION == 2, 1, 0), 
+    education_graduate_school = ifelse(EDUCATION == 1, 1, 0),
+    isMarried = ifelse(MARRIAGE == 1, 1, 0),
+    SEX = NULL, # remove variable
+    EDUCATION = NULL,
+    MARRIAGE = NULL
+  )
+
+# Plotting
+
+## Visualize each variable
+## Takes a second to display
 data %>% 
   melt() %>%
   filter(variable != 'ID') %>%
@@ -26,7 +84,7 @@ data %>%
   facet_wrap(~variable, scales = "free") + 
   labs(title = 'Dataset overview')
 
-# Visualize the main variable
+## Visualize the credit variable
 data %>%
   ggplot(aes(x = LIMIT_BAL)) +
   stat_density(color = orange, fill = orange, alpha = 0.5) +
@@ -35,3 +93,4 @@ data %>%
     x = 'Crediti limit',
     y = 'Density'
   )
+
