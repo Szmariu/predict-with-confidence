@@ -1,3 +1,5 @@
+# failed analysis of how reduction in number of obs affects variance
+
 library(ranger)
 library(tidyverse)
 library(ggplot2)
@@ -27,7 +29,8 @@ form <- formula(paste0(target, " ~ ."))
 n_folds = 3
 
 
-run <- function(data){
+
+rf_cv <- function(data, n_folds=3){
   folds <- sample(rep(c(1:n_folds),ceiling(nrow(data)/n_folds)), size = nrow(data))
   
   results <- list()
@@ -43,19 +46,18 @@ run <- function(data){
     pred <- predict(rf_fit, data=na.omit(data[folds == i,]), type = "se")
     
     results[i] <- list(as_tibble(list(id = which(folds==i), 
-                                      pred_prob = pred$predictions[,1], 
-                                      se = pred$se[,1])))
+                                      pred_prob = pred$predictions[,2], 
+                                      se = pred$se[,2])))
     
   }
   results <- do.call(rbind, results)
   results <- results %>% arrange(id)
   results <- cbind(data, results)
-  results
+  return(results)
 }
 
 
 n_repeats <- 10
-
 
 results_full <- list()
 results_reduced <- list()
@@ -105,3 +107,7 @@ results_full %>%
 results_reduced %>% 
   group_by(rep) %>% 
   summarise(n())
+
+
+
+

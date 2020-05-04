@@ -1,3 +1,5 @@
+# Main analysis
+
 library(ranger)
 library(tidyverse)
 library(ggplot2)
@@ -11,102 +13,108 @@ data <- data[,-1]
 target <- 'didDefault'
 data[,target] <- factor(data[[target]])
 
-# Target class frequency
-data[,target] %>% table()
+# This function runs k fold cross validation and append following columns to original data:
+# id - row number from data
+# pred_prob - OOS predicted probability of default
+# se - estimated OOS standard error
+rf_cv <- function(data, n_folds=3){
+  form <- formula("didDefault ~ .")
 
-# Function to divide df into training, and test sets
-index <- function(df=df,pctTrain=0.7)
-{
-  N <- nrow(df)
-  train <- sample(N, pctTrain*N)
-  test <- setdiff(seq_len(N),train)
-  Ind <- list(train=train,test=test)
-  return(Ind)
+  folds <- sample(rep(c(1:n_folds),ceiling(nrow(data)/n_folds)), size = nrow(data))
+  
+  results <- list()
+  
+  for(i in 1:n_folds){
+    # Build the model on training data
+    rf_fit <- ranger(formula=form, 
+                     data=na.omit(data[folds != i ,]), 
+                     probability=TRUE,
+                     keep.inbag=TRUE) 
+    
+    # Generate predictions and standard errors for test set
+    pred <- predict(rf_fit, data=na.omit(data[folds == i,]), type = "se")
+    
+    results[i] <- list(as_tibble(list(id = which(folds==i), 
+                                      pred_prob = pred$predictions[,2], 
+                                      se = pred$se[,2])))
+    
+  }
+  results <- do.call(rbind, results)
+  results <- results %>% arrange(id)
+  results <- cbind(data, results)
+  return(results)
 }
-#
 
-set.seed(123)
-ind <- index(data, 0.8)
-length(ind$train); length(ind$test)
-
-form <- formula(paste0(target, " ~ ."))
-
-# Build the model on training data
-rf_fit <- ranger(formula=form, data=na.omit(data[ind$train,]), 
-                 probability=TRUE,
-                 keep.inbag=TRUE) 
-
-# Generate predictions and standard errors for test set
-pred <- predict(rf_fit, data=na.omit(data[ind$test,]), type = "se")
-
-# Merge predictions and true classes
-res <- as_tibble(list(pred_prob = pred$predictions[,2], se = pred$se[,2], true =  data[[target]][ind$test]))
-res <- cbind(data[ind$test,], res) 
+res <- rf_cv(data, 3)
 
 
-res$isMarried %>%  table()
-
-res %>% group_by(isFemale) %>% 
-  summarise(n(), mean(se))
-
-res %>% group_by(isMarried) %>% 
-  summarise(n(), mean(se))
-
-education <- res %>% select(education_high_school, education_university, education_graduate_school)
-colnames(education)
-
-
-res$education <- 1:nrow(education) %>% 
-  map_chr(function(x) {colnames(education)[education[x,] == 1]}) 
-
-
-res %>% group_by(education) %>% 
-  summarise(n(), mean(se), mean(pred_prob))
-
-
-res$pred <- as.numeric(res$pred_prob > 0.5)
-
-
-
+# Plots
 
 # TODO: Titles and labels etc.
 
 ggplot(res) +
-  geom_boxplot(aes(x=true, y=pred_prob, fill=true))
+  geom_boxplot(aes(x=didDefault, y=pred_prob, fill=didDefault))
 
-  
-res %>% 
-ggplot() +
-  geom_point(aes(x=pred_prob, y=se, color=true))
+
+ggplot(res) +
+  geom_point(aes(x=pred_prob, y=se, color=didDefault))
 
 
 ggplot(res) +
   geom_histogram(aes(x=se))
 
 
-res$pred_bin <- res$pred_prob %>% 
-  +   cut_width(width = 0.1, boundary = 0)
+ggplot(res) +
+  geom_boxplot(aes(x=factor(isFemale), y = se))
 
-res %>% 
-  filter(pred == 0) %>% 
-  group_by(pred_bin, true) %>% 
-  summarise(mean(se))
+ggplot(res) + 
+  geom_boxplot(aes(x=cut_number(LIMIT_BAL, 5), y = log(se)))
 
-
-res %>% 
-  filter(pred == 1) %>% 
-  group_by(pred_bin, true) %>% 
-  summarise(mean(se))
-  
-ggplot() +
-  geom_boxplot(aes(x=pred_bin, y=se, fill=true))
+ggplot(res) +
+  geom_point(aes(x=LIMIT_BAL, y = se))
 
 
+# Repeated cv
+cv_results <- map(1:3, function(x) rf_cv(data, 3))
+
+for(i in 1:3){
+  cv_results[[i]]$rep <- i
+}
+
+cv_results <- do.call(rbind, cv_results)
+
+res$prob_bin <- res$pred_prob %>% 
+  cut_width(width=0.1,boundary=0)
+
+
+
+
+tmp <- cv_results  %>% 
+  mutate(prob_bin = cut_width(pred_prob, width=0.1, boundary=0)) %>% 
+  group_by(rep, prob_bin) %>% 
+  summarise(prob = mean(pred_prob), 
+            se = sqrt(mean(se^2)),
+            prop = mean(didDefault == 1),
+            n = n())
+
+head(tmp)
+
+tmp %>% 
+  ggplot(aes(x = prop ,
+             y = prob)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = prob - se, ymax = prob  + se)) +
+  geom_abline(slope = 1, lty = 2, color = 'blue') + 
+  xlab("Proportion of defaulters") + 
+  ylab("Probability of default")
+
+
+# Probably shouldn't need anything below
 
 
 
 # Evaluation
-true = as.numeric(res$true)-1
+true = as.numeric(res$didDefault == 1)
 
 calc_preds <- function(threshold){
   # Calculate class predictions using given threshold
@@ -147,7 +155,7 @@ for(i in seq_along(threshold_range)){
   results$tpr[i] <- tpr(preds, true)
 }
 
-plot(results, type = 'l')
+
 
 
 results_improved <- data.frame(matrix(ncol=2, nrow=length(threshold_range)))
