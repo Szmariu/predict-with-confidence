@@ -41,6 +41,32 @@ pred <- predict(rf_fit, data=na.omit(data[ind$test,]), type = "se")
 
 # Merge predictions and true classes
 res <- as_tibble(list(pred_prob = pred$predictions[,2], se = pred$se[,2], true =  data[[target]][ind$test]))
+res <- cbind(data[ind$test,], res) 
+
+
+res$isMarried %>%  table()
+
+res %>% group_by(isFemale) %>% 
+  summarise(n(), mean(se))
+
+res %>% group_by(isMarried) %>% 
+  summarise(n(), mean(se))
+
+education <- res %>% select(education_high_school, education_university, education_graduate_school)
+colnames(education)
+
+
+res$education <- 1:nrow(education) %>% 
+  map_chr(function(x) {colnames(education)[education[x,] == 1]}) 
+
+
+res %>% group_by(education) %>% 
+  summarise(n(), mean(se), mean(pred_prob))
+
+
+res$pred <- as.numeric(res$pred_prob > 0.5)
+
+
 
 
 # TODO: Titles and labels etc.
@@ -48,13 +74,36 @@ res <- as_tibble(list(pred_prob = pred$predictions[,2], se = pred$se[,2], true =
 ggplot(res) +
   geom_boxplot(aes(x=true, y=pred_prob, fill=true))
 
-
-ggplot(res) +
+  
+res %>% 
+ggplot() +
   geom_point(aes(x=pred_prob, y=se, color=true))
 
 
 ggplot(res) +
   geom_histogram(aes(x=se))
+
+
+res$pred_bin <- res$pred_prob %>% 
+  +   cut_width(width = 0.1, boundary = 0)
+
+res %>% 
+  filter(pred == 0) %>% 
+  group_by(pred_bin, true) %>% 
+  summarise(mean(se))
+
+
+res %>% 
+  filter(pred == 1) %>% 
+  group_by(pred_bin, true) %>% 
+  summarise(mean(se))
+  
+ggplot() +
+  geom_boxplot(aes(x=pred_bin, y=se, fill=true))
+
+
+
+
 
 # Evaluation
 true = as.numeric(res$true)-1
