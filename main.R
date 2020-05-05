@@ -52,6 +52,8 @@ res <- rf_cv(data, 3)
 
 # TODO: Titles and labels etc.
 
+
+
 ggplot(res) +
   geom_boxplot(aes(x=didDefault, y=pred_prob, fill=didDefault))
 
@@ -75,6 +77,8 @@ ggplot(res) +
 
 
 # Repeated cv
+
+
 cv_results <- map(1:3, function(x) rf_cv(data, 3))
 
 for(i in 1:3){
@@ -86,8 +90,7 @@ cv_results <- do.call(rbind, cv_results)
 res$prob_bin <- res$pred_prob %>% 
   cut_width(width=0.1,boundary=0)
 
-
-
+# Aggregating probability of default, true default rate and se per probability bin
 
 tmp <- cv_results  %>% 
   mutate(prob_bin = cut_width(pred_prob, width=0.1, boundary=0)) %>% 
@@ -98,6 +101,8 @@ tmp <- cv_results  %>%
             n = n())
 
 head(tmp)
+
+# Visualizing how well model predicts per probability bin
 
 tmp %>% 
   ggplot(aes(x = prop ,
