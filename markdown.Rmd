@@ -1,3 +1,32 @@
+---
+title: "Predicting with confidence"
+author: "Katarzyna Kryńska, Jerzy Bednarski, Michał Szałanski"
+date: "6 05 2020"
+output: html_document
+---
+
+```{r to_do, eval = F}
+
+To-do:
+  add theoretical content
+  add content to model results
+  add analysis with missing data (as suggested)
+  Make the code nicer, add comments
+
+```
+
+# Problem definition 
+What is the problem (from the presentation)
+
+
+```{r setup, include=FALSE, echo = F}
+knitr::opts_chunk$set(fig.align = "center")
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(comment = "")
+knitr::opts_chunk$set(fig.width = 16)
+knitr::opts_chunk$set(fig.height = 9)
+
 library(ranger)
 library(tidyverse)
 library(ggplot2)
@@ -18,17 +47,18 @@ blueGreen = "#007A87"
 flesh = "#FFAA91"
 purple = "#7B0051"
 options(scipen=999) #avoiding e10 notation
+```
 
+# Theoretical background and literature review
+About our solution (gennerally, like the presentation) + the paper
 
+# Our implementation
+Some words on how it's done and the results
 
-
-
-
-
-
-
+```{r uneven_groups, cache = TRUE}
 ############ Uneven groups
 # Simple test based on example from the presentation
+
 
 didDefault <- c(c(rep(1, 165) , rep(0, 10000 - 165)),
                 c(rep(1, 57), rep(0, 500 - 57)))
@@ -48,7 +78,7 @@ res2 <- tibble(pred_prob = res2$predictions[,2], se = res2$se[,2])
 res2 <- cbind(data ,res2)
 
 
-plot <- res2 %>% group_by(self_employed) %>% 
+res2 %>% group_by(self_employed) %>% 
   summarise(n_def = sum(didDefault == 1),
     n = n(),
     pd = mean(pred_prob),
@@ -66,22 +96,12 @@ plot <- res2 %>% group_by(self_employed) %>%
   ) + 
   scale_x_discrete(labels = c('Salary (n = 10 000)', 'Self employed (n = 500)')) +
   scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0, 0.16)) 
-
-plot(plot)
-
-plot %>% ggsave('plot01.png', 
-                .,
-                'png', 
-                file.path(getwd(), "plots"),
-                width = 20,
-                height = 10)
+```
 
 
-
-############################
-
-
+```{r even_groups, cache = TRUE}
 # Simple test based on example from the presentation
+
 
 didDefault <- c(c(rep(1, 165) , rep(0, 10000 - 165)),
                 c(rep(1, 320), rep(0, 9000 - 320)))
@@ -101,7 +121,7 @@ res2 <- tibble(pred_prob = res2$predictions[,2], se = res2$se[,2])
 res2 <- cbind(data ,res2)
 
 
-plot <- res2 %>% group_by(self_employed) %>% 
+res2 %>% group_by(self_employed) %>% 
   summarise(n_def = sum(didDefault == 1),
             n = n(),
             pd = mean(pred_prob),
@@ -119,19 +139,10 @@ plot <- res2 %>% group_by(self_employed) %>%
   ) + 
   scale_x_discrete(labels = c('Married (n = 10 000)', 'Single (n = 9 000)')) +
   scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0, 0.042)) 
-
-plot(plot)
-
-plot %>% ggsave('plot02.png', 
-                .,
-                'png', 
-                file.path(getwd(), "plots"),
-                width = 20,
-                height = 10)
+```
 
 
-
-
+```{r real_data, eval = TRUE, cache = T}
 ###########################
 
 # Read processed data
@@ -182,7 +193,7 @@ res$trueResult <- as.integer(res$didDefault) - 1
 
 
 
-plot <- ggplot(res) +
+ggplot(res) +
   geom_jitter(aes(x = pred_prob, y = 1 - se, color = 1 - se), alpha = 0.4) +
   scale_color_gradient(high = orange, low = purple) +
   labs(title = 'Model confidence vs predicted probability of default',
@@ -191,12 +202,14 @@ plot <- ggplot(res) +
        y = 'Model confidence') +
   theme(legend.position = 'none') +
   scale_x_continuous(labels = scales::percent_format(accuracy = 1))
+```
 
-plot(plot)
 
-plot %>% ggsave('plot03.png', 
-                .,
-                'png', 
-                file.path(getwd(), "plots"),
-                width = 20,
-                height = 10)
+```{r eval = F}
+HERE add the missing data experiment (remember to remove the eval = F)
+```
+
+# Potential uses and summary
+
+# Sources 
+Add the main one + what the dude had in his presentation

@@ -40,3 +40,9 @@ vignettes/*.pdf
 .Rproj.user
 
 plots/
+
+markdown.html
+
+markdown_files/figure-html/
+
+markdown_files/figure-latex/
