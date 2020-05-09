@@ -56,28 +56,23 @@ About our solution (gennerally, like the presentation) + the paper
 Some words on how it's done and the results
 
 ```{r uneven_groups, cache = TRUE}
-############ Uneven groups
-# Simple test based on example from the presentation
-
-
+# Create the articilial dataset with uneven groups
 didDefault <- c(c(rep(1, 165) , rep(0, 10000 - 165)),
                 c(rep(1, 57), rep(0, 500 - 57)))
 
-
 self_employed <- c(rep(0, 10000), rep(1, 500))
-
-
-
 data <- tibble(self_employed=factor(self_employed), didDefault = factor(didDefault))
 
-
+# Run the Random Forest
 rf <- ranger("didDefault ~ .", data=data, probability = T, keep.inbag=TRUE)
 
+# Predict the results, including the sd
 res2 <- predict(rf, data, type ='se')
 res2 <- tibble(pred_prob = res2$predictions[,2], se = res2$se[,2])
 res2 <- cbind(data ,res2)
 
-
+# Group the results and add the confidence intervals
+# Then plot 
 res2 %>% group_by(self_employed) %>% 
   summarise(n_def = sum(didDefault == 1),
     n = n(),
@@ -100,26 +95,17 @@ res2 %>% group_by(self_employed) %>%
 
 
 ```{r even_groups, cache = TRUE}
-# Simple test based on example from the presentation
-
-
+# Like above, but with even groups
 didDefault <- c(c(rep(1, 165) , rep(0, 10000 - 165)),
                 c(rep(1, 320), rep(0, 9000 - 320)))
-
-
 self_employed <- c(rep(0, 10000), rep(1, 9000))
-
-
-
 data <- tibble(self_employed=factor(self_employed), didDefault = factor(didDefault))
-
 
 rf <- ranger("didDefault ~ .", data=data, probability = T, keep.inbag=TRUE)
 
 res2 <- predict(rf, data, type ='se')
 res2 <- tibble(pred_prob = res2$predictions[,2], se = res2$se[,2])
 res2 <- cbind(data ,res2)
-
 
 res2 %>% group_by(self_employed) %>% 
   summarise(n_def = sum(didDefault == 1),
@@ -144,11 +130,12 @@ res2 %>% group_by(self_employed) %>%
 
 ```{r real_data, eval = TRUE, cache = T}
 ###########################
-
 # Read processed data
+# The code for processing can be found on GitHub, not included here for brevity
+# Includes outlier removal and data cleaning
 data <- read_csv("data/processed/credit_default_clean.csv")
 
-# Remove id column
+# Remove the id column
 data <- data[,-1]
 
 target <- 'didDefault'
@@ -162,7 +149,6 @@ rf_cv <- function(data, n_folds=3){
   form <- formula("didDefault ~ .")
   
   folds <- sample(rep(c(1:n_folds),ceiling(nrow(data)/n_folds)), size = nrow(data))
-  
   results <- list()
   
   for(i in 1:n_folds){
@@ -186,13 +172,12 @@ rf_cv <- function(data, n_folds=3){
   return(results)
 }
 
+# Run the CV
 res <- rf_cv(data, 3)
 
 res$trueResult <- as.integer(res$didDefault) - 1
-# Plots
 
-
-
+# Plot the results
 ggplot(res) +
   geom_jitter(aes(x = pred_prob, y = 1 - se, color = 1 - se), alpha = 0.4) +
   scale_color_gradient(high = orange, low = purple) +
