@@ -1,23 +1,8 @@
 ---
 title: "Predicting with confidence"
 author: "Katarzyna Kryńska, Jerzy Bednarski, Michał Szałanski"
-date: "6 05 2020"
 output: html_document
 ---
-
-```{r to_do, eval = F}
-
-To-do:
-  add theoretical content
-  add content to model results
-  add analysis with missing data (as suggested)
-  Make the code nicer, add comments
-
-```
-
-# Problem definition 
-What is the problem (from the presentation)
-
 
 ```{r setup, include=FALSE, echo = F}
 knitr::opts_chunk$set(fig.align = "center")
@@ -26,19 +11,32 @@ knitr::opts_chunk$set(message = FALSE)
 knitr::opts_chunk$set(comment = "")
 knitr::opts_chunk$set(fig.width = 16)
 knitr::opts_chunk$set(fig.height = 9)
+```
 
+```{r to_do, eval = F}
+To-do:
+  add theoretical content
+  add analysis with missing data (as suggested)
+```
+
+# Problem definition 
+What is the problem (from the presentation)
+
+
+# Theoretical background and literature review
+About our solution (gennerally, like the presentation) + the paper
+
+# Implementation in R
+
+### Libraries
+To start with, we need to load the required libraries. For random forest we'll be using the ranger package. Then we'll use ggplot2 to plot the results, with the fanctastic theme provided by the director of data science at Airbnb. 
+```{r libraries}
 library(ranger)
 library(tidyverse)
 library(ggplot2)
-
 library(ggthemes)
-library(ggrepel)
-library(cowplot)
-library(ggridges)
-library(viridis)
 library(ggtech) # For the airbnb theme
 library(extrafont) # To add the font for Airbnb theme
-library(GGally) # Grapihical correlogram
 
 theme_set(theme_airbnb_fancy())
 pink = "#FF5A5F"
@@ -49,11 +47,12 @@ purple = "#7B0051"
 options(scipen=999) #avoiding e10 notation
 ```
 
-# Theoretical background and literature review
-About our solution (gennerally, like the presentation) + the paper
+### Experiment #1 - uneven groups
+To start, we wanted to see the effect of a different number of observations within each group. If the model were to behave as expected, the group with fewer observations should have a wider margin of confidence.   
 
-# Our implementation
-Some words on how it's done and the results
+To test this, we prepared an artificial dataset. We try to predict the default probabability as a factor of the type of employment. The two options are: salary and self employed. The analisys is based on historical data and such we have an imbalaced set: 10 000 people on salary, and only 500 self empolyed.   
+
+The results are promising - the less populated group does indeed have a much higher margin of error. It also seems to follow the general limit theorem - the number of observations in the salaried group is 20 times bigger, but the variance is only about 4.5 times smaller. 
 
 ```{r uneven_groups, cache = TRUE}
 # Create the articilial dataset with uneven groups
@@ -93,6 +92,13 @@ res2 %>% group_by(self_employed) %>%
   scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0, 0.16)) 
 ```
 
+### Experiment #2 - even groups
+
+In the previus experiment, the default probability was very different fo the two groups. To exclude the possibility of this infuencing the variance, we prepared a second experiment. This time the groups are more or less even, but the default rate is different.   
+
+The data is also artificial - we are simulating the influence of marital status on the pd. We have 10 000 observations of married people and 9 000 singles.  
+
+And the results are also promising - the groups seem to have simmilar margins of confidence, despite having very different probasbilities of default. 
 
 ```{r even_groups, cache = TRUE}
 # Like above, but with even groups
@@ -127,9 +133,16 @@ res2 %>% group_by(self_employed) %>%
   scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0, 0.042)) 
 ```
 
+### Experiment #3 - real data
+To push the experiments further, we searched for a real dataset. We found a promising datbase from Taiwan, consisting of 30 000 observations and 23 variables.  
+
+After importing the data, cleaning it and removing outliers, we imported it into the model. This time, we are taking a slightly different approach. We are running a 3-fold cross validation on this data to get the OOS probability and variance. 
+
+For the plot below, we are using a new metric - "Model confidence". Since this is a binary classification problem, we calculate the model confidence as (1 - standard error) * 100%. Thous 100% means that the model is absolutelty confident in it's prediction and lower means that it starts to loose confidence. It has to be noted, that we calculate standard error and PD for each observation individually.   
+
+The results are very interesting - it seems that the model is very confident when it predicts PD near 0% and 100%, but it starts to loose confidence for some observations when the predicted probability is closer to 50%. 
 
 ```{r real_data, eval = TRUE, cache = T}
-###########################
 # Read processed data
 # The code for processing can be found on GitHub, not included here for brevity
 # Includes outlier removal and data cleaning
@@ -189,6 +202,7 @@ ggplot(res) +
   scale_x_continuous(labels = scales::percent_format(accuracy = 1))
 ```
 
+### Experiment #4 - missing data
 
 ```{r eval = F}
 HERE add the missing data experiment (remember to remove the eval = F)
@@ -198,3 +212,10 @@ HERE add the missing data experiment (remember to remove the eval = F)
 
 # Sources 
 Add the main one + what the dude had in his presentation
+
+### Confidence intervals for Random Forest
+Wager, S., Hastie T., & Efron, B. (2014). Confidence Intervals for Random Forests: The Jackknife and the Infinitesimal Jackknife. J Mach Learn Res 15:1625-1651
+
+### Dataset
+Yeh, I. C., & Lien, C. H. (2009). The comparisons of data mining techniques for the predictive accuracy of probability of default of credit card clients. Expert Systems with Applications, 36(2), 2473-2480.
+https://archive.ics.uci.edu/ml/datasets/default+of+credit+card+clients
