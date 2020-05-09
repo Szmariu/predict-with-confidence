@@ -24,12 +24,12 @@ What is the problem (from the presentation)
 
 
 # Theoretical background and literature review
-About our solution (gennerally, like the presentation) + the paper
+About our solution (generally, like the presentation) + the paper
 
 # Implementation in R
 
 ### Libraries
-To start with, we need to load the required libraries. For random forest we'll be using the ranger package. Then we'll use ggplot2 to plot the results, with the fanctastic theme provided by the director of data science at Airbnb. 
+To start with, we need to load the required libraries. For random forest we'll be using the ranger package. Then we'll use plotting2 to plot the results, with the fantastic theme provided by the director of data science at Airbnb. 
 ```{r libraries}
 library(ranger)
 library(tidyverse)
@@ -50,7 +50,7 @@ options(scipen=999) #avoiding e10 notation
 ### Experiment #1 - uneven groups
 To start, we wanted to see the effect of a different number of observations within each group. If the model were to behave as expected, the group with fewer observations should have a wider margin of confidence.   
 
-To test this, we prepared an artificial dataset. We try to predict the default probabability as a factor of the type of employment. The two options are: salary and self employed. The analisys is based on historical data and such we have an imbalaced set: 10 000 people on salary, and only 500 self empolyed.   
+To test this, we prepared an artificial dataset. We try to predict the default probability as a factor of the type of employment. The two options are: salary and self employed. The analysis is based on historical data and such we have an imbalanced set: 10 000 people on salary, and only 500 self employed.   
 
 The results are promising - the less populated group does indeed have a much higher margin of error. It also seems to follow the general limit theorem - the number of observations in the salaried group is 20 times bigger, but the variance is only about 4.5 times smaller. 
 
@@ -94,11 +94,11 @@ res2 %>% group_by(self_employed) %>%
 
 ### Experiment #2 - even groups
 
-In the previus experiment, the default probability was very different fo the two groups. To exclude the possibility of this infuencing the variance, we prepared a second experiment. This time the groups are more or less even, but the default rate is different.   
+In the previews experiment, the default probability was very different for the two groups. To exclude the possibility of this influencing the variance, we prepared a second experiment. This time the groups are more or less even, but the default rate is different.   
 
 The data is also artificial - we are simulating the influence of marital status on the pd. We have 10 000 observations of married people and 9 000 singles.  
 
-And the results are also promising - the groups seem to have simmilar margins of confidence, despite having very different probasbilities of default. 
+And the results are also promising - the groups seem to have similar margins of confidence, despite having very different probabilities of default. 
 
 ```{r even_groups, cache = TRUE}
 # Like above, but with even groups
@@ -134,11 +134,11 @@ res2 %>% group_by(self_employed) %>%
 ```
 
 ### Experiment #3 - real data
-To push the experiments further, we searched for a real dataset. We found a promising datbase from Taiwan, consisting of 30 000 observations and 23 variables.  
+To push the experiments further, we searched for a real dataset. We found a promising database from Taiwan, consisting of 30 000 observations and 23 variables.  
 
 After importing the data, cleaning it and removing outliers, we imported it into the model. This time, we are taking a slightly different approach. We are running a 3-fold cross validation on this data to get the OOS probability and variance. 
 
-For the plot below, we are using a new metric - "Model confidence". Since this is a binary classification problem, we calculate the model confidence as (1 - standard error) * 100%. Thous 100% means that the model is absolutelty confident in it's prediction and lower means that it starts to loose confidence. It has to be noted, that we calculate standard error and PD for each observation individually.   
+For the plot below, we are using a new metric - "Model confidence". Since this is a binary classification problem, we calculate the model confidence as (1 - standard error) * 100%. Thous 100% means that the model is absolutely confident in it's prediction and lower means that it starts to loose confidence. It has to be noted, that we calculate standard error and PD for each observation individually.   
 
 The results are very interesting - it seems that the model is very confident when it predicts PD near 0% and 100%, but it starts to loose confidence for some observations when the predicted probability is closer to 50%. 
 
