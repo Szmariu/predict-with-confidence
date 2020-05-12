@@ -75,7 +75,8 @@ ggplot(res) +
 ggplot(res) +
   geom_point(aes(x=LIMIT_BAL, y = se))
 
-
+devtools::install_github("ricardo-bion/ggtech", 
+                         dependencies=TRUE)
 # Repeated cv
 
 
@@ -110,8 +111,9 @@ tmp %>%
   geom_point() +
   geom_errorbar(aes(ymin = prob - se, ymax = prob  + se)) +
   geom_abline(slope = 1, lty = 2, color = 'blue') + 
-  xlab("Proportion of defaulters") + 
-  ylab("Probability of default")
+  xlab("Fraction of defaults") + 
+  ylab("Preidcted probability of default") +
+  ggtitle("OOS probability of default vs True fraction of defaults")
 
 
 # Probably shouldn't need anything below
