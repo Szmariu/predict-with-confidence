@@ -4,6 +4,23 @@ library(ranger)
 library(tidyverse)
 library(ggplot2)
 
+library(ggthemes)
+library(ggrepel)
+library(cowplot)
+library(ggridges)
+library(viridis)
+library(ggtech) # For the airbnb theme
+library(extrafont) # To add the font for Airbnb theme
+library(GGally) # Grapihical correlogram
+
+theme_set(theme_airbnb_fancy())
+pink = "#FF5A5F"
+orange = "#FFB400"
+blueGreen = "#007A87"
+flesh = "#FFAA91"
+purple = "#7B0051"
+options(scipen=999) #avoiding e10 notation
+
 # Read processed data
 data <- read_csv("data/processed/credit_default_clean.csv")
 
@@ -47,7 +64,7 @@ rf_cv <- function(data, n_folds=3){
 
 res <- rf_cv(data, 3)
 
-
+res$trueResult <- as.integer(res$didDefault) - 1
 # Plots
 
 # TODO: Titles and labels etc.
@@ -59,7 +76,60 @@ ggplot(res) +
 
 
 ggplot(res) +
-  geom_point(aes(x=pred_prob, y=se, color=didDefault))
+  geom_point(aes(x=pred_prob, y=1-se, color=didDefault))
+
+
+ggplot(res) +
+  geom_jitter(aes(x=didDefault, y= (1 - abs(as.integer(didDefault) - pred_prob - 1)) * (1 - se) , color=didDefault))
+
+
+ggplot(res) +
+  geom_jitter( 
+    aes(
+      x = cut_interval(LIMIT_BAL, 100),
+      y = ( 1 - abs(trueResult - pred_prob) ) * (1 - se)
+      )
+  )
+
+res %>%
+  group_by(cut_interval(LIMIT_BAL, 100)) %>%
+  summarise(x = median(LIMIT_BAL), value = median(( 1 - abs(trueResult - pred_prob) ) * (1 - se))) %>%
+  ggplot() +
+  geom_jitter( 
+    aes(
+      x = x,
+      y = value
+    )
+  )
+
+
+res %>%
+  group_by(cut_interval(PAY_AMT1, 100)) %>%
+  summarise(x = median(PAY_AMT1), value = mean(( 1 - abs(trueResult - pred_prob) ) * (1 - se))) %>%
+  ggplot() +
+  geom_jitter( 
+    aes(
+      x = x,
+      y = value
+    )
+  )
+
+
+
+res %>%
+  group_by(cut_interval(PAY_AMT1, 100)) %>%
+  summarise(x = median(PAY_AMT1), value = mean( 1 - se)) %>%
+  ggplot() +
+  geom_point( 
+    aes(
+      x = x,
+      y = value
+    )
+  )
+
+
+
+( 1 - abs(trueResult - pred_prob) ) * (1 - se)
 
 
 ggplot(res) +
@@ -69,11 +139,64 @@ ggplot(res) +
 ggplot(res) +
   geom_boxplot(aes(x=factor(isFemale), y = se))
 
+
 ggplot(res) + 
   geom_boxplot(aes(x=cut_number(LIMIT_BAL, 5), y = log(se)))
 
 ggplot(res) +
-  geom_point(aes(x=LIMIT_BAL, y = se))
+  geom_jitter(aes(x=LIMIT_BAL, y = se))
+
+
+
+# 
+
+res %>%
+  ggplot(aes(x = 1-se)) +
+  geom_histogram(bins = 60, color = orange, fill = orange, alpha = 0.5) 
+  labs(title = 'Distribution of model certainty', x = 'Complexity', y = 'Count')
+
+
+
+###################
+  
+res %>%
+    ggplot() +
+    geom_point(aes(x = LIMIT_BAL, y = pred_prob))
+
+  
+res %>%
+    group_by(cut_interval(LIMIT_BAL, 15)) %>%
+    summarise(x = mean(LIMIT_BAL), value = median(pred_prob), sd = median(se)) %>%
+  ggplot(aes(x = x, y = value)) +
+    geom_point() +
+    geom_errorbar(aes(ymin = value - sd, ymax = value + sd), width = 10000) 
+
+
+
+res %>%
+  group_by(education_high_school) %>%
+  summarise(x = mean(education_high_school), value = mean(pred_prob), sd = mean(se)) %>%
+  ggplot(aes(x = factor(x), y = value)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = value - sd, ymax = value + sd)) 
+
+
+#######################
+
+
+res %>%
+  group_by(education_high_school) %>%
+  summarise(x = mean(education_high_school), value = mean(pred_prob), sd = mean(se)) %>%
+  ggplot(aes(x = factor(x), y = sd)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = value - sd, ymax = value + sd)) 
+
+
+
+
+
+
+
 
 devtools::install_github("ricardo-bion/ggtech", 
                          dependencies=TRUE)
