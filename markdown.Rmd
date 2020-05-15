@@ -37,6 +37,7 @@ library(ggplot2)
 library(ggthemes)
 library(ggtech) # For the airbnb theme
 library(extrafont) # To add the font for Airbnb theme
+library(mice) # Imputation
 
 theme_set(theme_airbnb_fancy())
 pink = "#FF5A5F"
@@ -202,11 +203,180 @@ ggplot(res) +
   scale_x_continuous(labels = scales::percent_format(accuracy = 1))
 ```
 
+
+### Experiment #4 - coverage of intervals
+```{r}
+cv_results <- map(1:3, function(x) rf_cv(data, 3))
+
+for(i in 1:3){
+  cv_results[[i]]$rep <- i
+}
+
+cv_results <- do.call(rbind, cv_results)
+
+res$prob_bin <- res$pred_prob %>% 
+  cut_width(width=0.1,boundary=0)
+
+# Aggregating probability of default, true default rate and se per probability bin
+
+tmp <- cv_results  %>% 
+  mutate(prob_bin = cut_width(pred_prob, width=0.1, boundary=0)) %>% 
+  group_by(rep, prob_bin) %>% 
+  summarise(prob = mean(pred_prob), 
+            se = sqrt(mean(se^2)),
+            prop = mean(didDefault == 1),
+            n = n())
+
+
+
+# Visualizing how well model predicts per probability bin
+
+tmp %>% 
+  ggplot(aes(x = prop ,
+             y = prob)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = prob - 2*se, ymax = prob  + 2*se)) +
+  geom_abline(slope = 1, lty = 2, color = 'blue') + 
+  xlab("Fraction of defaults") + 
+  ylab("Preidcted probability of default") +
+  ggtitle("OOS probability of default vs True fraction of defaults")
+```
+
+
+
+
 ### Experiment #4 - missing data
 
+To improve on feedback received during our pitch we decided to test how our method can deal with missing values among independent variables.
+To accomplish that we artificially remove value of some variables for 50% of the observations from the test set (20% observations). Next we performed repeated imputation using Predictive Mean Maching using "mice" library. For each of the imputed datasets we performed prediction using Random Forest model fitted on training dataset. Final estimate of standard error is equal to root of sum of average variance of prediction between imputations and average variance estimated using infinitesmall jacknife.
+
+Our results show that this method estimates much higher variance for observations which had missing values, which matches our expectations. 
+
 ```{r eval = F}
-HERE add the missing data experiment (remember to remove the eval = F)
+# Read processed data
+data <- read_csv("data/processed/credit_default_clean.csv")
+# Remove id column
+data <- data[,-1]
+target <- 'didDefault'
+factor_vars <- c("didDefault", "isFemale", "isMarried",  "education_high_school", "education_university", "education_graduate_school")
+
+for(var in factor_vars){
+  data[,var] <- factor(data[[var]])
+}
+
+train_test_ind <- function(data=data,pctTrain=0.8)
+{
+  # fcn to create indices to divide data into random
+  # training, validation and testing data sets
+  N <- nrow(data)
+  train <- sample(N, pctTrain*N)
+  test <- setdiff(seq_len(N),train)
+  Ind <- list(train=train,test=test)
+  return(Ind)
+} 
+
+ind <- train_test_ind(data)
+ind$missing <- sample(ind$test,  floor(length(ind$test)/2))
+
+rf <- ranger(didDefault ~., data=data[ind$train,], 
+             probability=TRUE,
+             keep.inbag=TRUE)
+
+data_missing = data
+cols_missing <- c( "PAY_0", "PAY_2", "PAY_3",  "PAY_4", "PAY_5", "PAY_6", "BILL_AMT1", "BILL_AMT2",
+                   "PAY_AMT2",  "PAY_AMT3",  "PAY_AMT4",  "PAY_AMT5",  "PAY_AMT6")
+data_missing[ind$missing, cols_missing ] = NA
+
+n_imputations=5
+
+imputed <- mice(as.data.frame(data_missing), m=n_imputations, maxit = 5, method = 'pmm', seed = 500)
+imputed <- 1:n_imputations %>% map(function(x) complete(imputed, action = x)[ind$test,])
+
+make_pred <- function(data){
+  pred <- predict(rf, data=data, type ='se')
+  tibble(se = pred$se[,2], pred = pred$predictions[,2])
+}
+
+test_preds <- imputed %>% map(make_pred)
+for(i in 1:n_imputations){
+  test_preds[[i]][,'imp'] = i
+}
+test_preds <- do.call(rbind, test_preds)
+test_preds[,'id'] <- rep(1:length(ind$test), n_imputations)
+
+test_result <- test_preds %>% 
+  mutate(w = 1/se^2) %>% 
+  group_by(id) %>% 
+  summarise(sd(pred))
+
+test_result <- test_preds %>% 
+  mutate(w = 1/se^2) %>% 
+  group_by(id) %>% 
+  summarise(agg_pred = sum(pred*w)/sum(w),
+            agg_se = sqrt(sum(se^2 * w^2)/ sum(w)^2),
+            se_pred = sd(pred)/sqrt(5),
+            total_se = sqrt(agg_se^2 + se_pred^2))
+
+test_result$had_na <- apply(is.na(data_missing[ind$test,]), 1, any)
+
+test_result %>% 
+  group_by(had_na) %>%
+  summarise(se = round(sqrt(mean(total_se^2)),3)) %>% 
+  print()
+
 ```
+```{r}
+test_result <- cbind(data[ind$test,],test_result)
+
+# TODO: title, labels etc.
+
+test_result %>% 
+  ggplot(aes(x= agg_pred, y=total_se, color = had_na)) +
+  geom_jitter(aes(x = agg_pred, y = 1 - total_se), alpha = 0.4) +
+  labs(title = "Confidence depending if observation had missing values",
+       x = 'Probability of default',
+       y = 'Model confidence') +
+  theme(legend.title = element_text("Had missing value")) +
+  scale_x_continuous(labels = scales::percent_format(accuracy = 1))
+```
+
+
+
+```{r}
+
+
+tmp <- test_result  %>% 
+  mutate(prob_bin = cut_width(agg_pred, width=0.2, boundary=0)) %>% 
+  group_by(prob_bin, had_na) %>% 
+  summarise(prob = mean(agg_pred), 
+            se = sqrt(mean(total_se^2)),
+            prop = mean(didDefault == 1),
+            n = n())
+
+
+
+# Visualizing how well model predicts per probability bin
+
+tmp %>% 
+  ggplot(aes(x = prop ,
+             y = prob)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = prob - 2*se, ymax = prob  + 2*se)) +
+  geom_abline(slope = 1, lty = 2, color = 'blue') + 
+  facet_wrap(vars(had_na)) +
+  xlab("Fraction of defaults") + 
+  ylab("Predicted probability of default") +
+  ggtitle("OOS probability of default vs True fraction of defaults") +
+  labs(title="OOS probability of default vs True fraction of defaults",
+       subtitle = "Depending if observations had missing values")
+```
+
+
+
+### Missing data - alternative solution
+
+
+
 
 # Potential uses and summary
 
@@ -219,3 +389,9 @@ Wager, S., Hastie T., & Efron, B. (2014). Confidence Intervals for Random Forest
 ### Dataset
 Yeh, I. C., & Lien, C. H. (2009). The comparisons of data mining techniques for the predictive accuracy of probability of default of credit card clients. Expert Systems with Applications, 36(2), 2473-2480.
 https://archive.ics.uci.edu/ml/datasets/default+of+credit+card+clients
+
+### Random Forest Missing Data Algortihms
+Tang, F., & Ishwaran, H. (2017). Random forest missing data algorithms. Statistical Analysis and Data Mining: The ASA Data Science Journal, 10(6), 363-377.
+https://arxiv.org/abs/1701.05305
+
+
