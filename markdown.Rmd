@@ -250,7 +250,8 @@ tmp %>%
 To improve on feedback received during our pitch we decided to test how our method can deal with missing values among independent variables.
 To accomplish that we artificially remove value of some variables for 50% of the observations from the test set (20% observations). Next we performed repeated imputation using Predictive Mean Maching using "mice" library. For each of the imputed datasets we performed prediction using Random Forest model fitted on training dataset. Final estimate of standard error is equal to root of sum of average variance of prediction between imputations and average variance estimated using infinitesmall jacknife.
 
-Our results show that this method estimates much higher variance for observations which had missing values, which matches our expectations. 
+
+Table below shows a standard error conditional on if the observations had missing values. We can see that it is larger for group with missing data.
 
 ```{r eval = F}
 # Read processed data
@@ -325,6 +326,9 @@ test_result %>%
   print()
 
 ```
+
+Plot below shows confidence of the model on y-axis and probability of default on y-axis. We can still see that confidence is lower when probability is close to 50%, but also there is strong decrease in confidence if there are missing observations.
+
 ```{r}
 test_result <- cbind(data[ind$test,],test_result)
 
@@ -340,7 +344,7 @@ test_result %>%
   scale_x_continuous(labels = scales::percent_format(accuracy = 1))
 ```
 
-
+Finally, we repeat our previous analysis, where we bin observations by predicted probability of default and in those bins compare expected fraction of defaulters with true fraction. That way we can see ifour standard error estimates provide a good margin of conservatism.
 
 ```{r}
 
@@ -375,8 +379,16 @@ tmp %>%
 
 ### Missing data - alternative solution
 
+Initially, we were going to use other approach for missing data, however, we have not found working implementation pf required methods.
+The approach would omit the step of imputation and instead would on-the-fly imputation during prediction and standard error estimation.
+On-the-fly imputation is described in Tang, F., & Ishwaran, H. (2017) in following words:
 
+> 1.  Only non-missing data is used to calculate the split-statistic for splitting a tree node.
+> 2.  When assigning left and right daughter node membership if the variable used to splitthe node has missing data, missing data for that variable is “imputed” by drawing arandom value from the inbag non-missing data.
+> 3.  Following a node split, imputed data are reset to missing and the process is repeateduntil terminal nodes are reached. Note that after terminal node assignment, imputeddata are reset back to missing, just as was done for all nodes.
+> 4.  Missing data in terminal nodes are then imputed using OOB non-missing terminalnode data from all the trees.  For integer valued variables, a maximal class rule isused; a mean rule is used for continuous variables."
 
+Author's claim to implement this method in R packages - randomForestSRC, but in our experience it is unstable and origin of crashes is probably within C layer. Therefore, we were unable to use it succesfully.
 
 # Potential uses and summary
 
