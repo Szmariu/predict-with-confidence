@@ -1,10 +1,14 @@
 ---
 title: "Predicting with confidence"
 author: "Katarzyna Kryńska, Jerzy Bednarski, Michał Szałanski"
-output: html_document
+output: 
+  rmdformats::material:
+    highlight: tango
+    cards: false
 ---
 
 ```{r setup, include=FALSE, echo = F}
+library(rmdformats)
 knitr::opts_chunk$set(fig.align = "center")
 knitr::opts_chunk$set(warning = FALSE)
 knitr::opts_chunk$set(message = FALSE)
@@ -15,16 +19,40 @@ knitr::opts_chunk$set(fig.height = 9)
 
 ```{r to_do, eval = F}
 To-do:
-  add theoretical content
-  add analysis with missing data (as suggested)
+  Poprawić tam gdzie jest eval=FALSE
 ```
 
 # Problem definition 
-What is the problem (from the presentation)
 
+Probability of Default is a basic and crucial parameter used in Credit Risk. Traditionally, it is based on credit scorecards which are built with logistic regression. However, the scope of informations available for the bank is different for various clients. If the customer is our current client (e.g. he has a bank account), we can access the data concerning his behaviour and assets. Hence, we can assume that estimated probability of default for this client is more precise than for a corresponding customer that does not have an account at our bank. 
+
+> Therefore, we would like to propose an innovative approach into calculating Probability of Default, which could also assess the level of uncertainty of the calculated PD. 
 
 # Theoretical background and literature review
-About our solution (generally, like the presentation) + the paper
+
+## Using Random Forest for credit risk models
+
+The employment of Machine Learning models in credit risk modelling is put into doubt, in particular for regulatory purposes because of the "black box" effect. Nonetheless, usage of Machine Learning techniques is beneficial as it can help improve general model predictive power.
+
+Decision trees are very intuitive models. The basic intuition behind a decision tree is to draw all possible decision paths so that they shape a tree. Each path from the root to a leaf forms a decision process. 
+
+> Random forest is based on a simple but powerful concept - the wisdom of crowds.
+
+Random forest consists of a large number of decision trees. Each tree is built on a random sample of the observations and for each tree of the forest a random set of features is chosen to split nodes. Then, when predicting a class variable, there is a plurality vote performed so that in the end one decision is made.
+
+Random Forests are known to computationally demanding but with R you can run computations on multiple cores in parallel, lowering the computation time.
+
+| pros                                                                                                                | cons                                                                             |
+|---------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------|
+| • Limits overfitting<br>• High accuracy<br>• Easy choice of relevant variables<br>• Handles well missing values<br> | • Low interpretability<br><br>• Parameter choice (number of trees, depth etc...) |
+
+## Confidence intervals for random forests
+
+We can estimate confidence intervals for random forests using formula proposed by researchers from Stanford in the paper "Confidence Intervals for Random Forests: The Jackknife and the Infinitesimal Jackknife" (Wager et al.). This means that we can estimate standard errors for random forests. Methods proposed by the authors are based on the jackknife and the ifinitesimal jackknife.
+
+The infinitesimal jackknife is an alternative to the jackknife where, instead of studying the behavior of a statistic when we remove one observation at a time, we look at what happens to the statistic when we individually down-weight each observation by an infinitesimal amount. When the infinitesimal jackknife is available, it sometimes gives more stable predictions than the regular jackknife. 
+
+![Variance of bagged learners](eq.jpg "Variance of bagged learners")
 
 # Implementation in R
 
@@ -329,7 +357,7 @@ test_result %>%
 
 Plot below shows confidence of the model on y-axis and probability of default on y-axis. We can still see that confidence is lower when probability is close to 50%, but also there is strong decrease in confidence if there are missing observations.
 
-```{r}
+```{r eval=FALSE}
 test_result <- cbind(data[ind$test,],test_result)
 
 # TODO: title, labels etc.
@@ -346,7 +374,7 @@ test_result %>%
 
 Finally, we repeat our previous analysis, where we bin observations by predicted probability of default and in those bins compare expected fraction of defaulters with true fraction. That way we can see ifour standard error estimates provide a good margin of conservatism.
 
-```{r}
+```{r eval=FALSE}
 
 
 tmp <- test_result  %>% 
@@ -379,7 +407,7 @@ tmp %>%
 
 ### Missing data - alternative solution
 
-Initially, we were going to use other approach for missing data, however, we have not found working implementation pf required methods.
+Initially, we were going to use other approach for missing data, however, we have not found working implementation of required methods.
 The approach would omit the step of imputation and instead would on-the-fly imputation during prediction and standard error estimation.
 On-the-fly imputation is described in Tang, F., & Ishwaran, H. (2017) in following words:
 
@@ -392,8 +420,18 @@ Author's claim to implement this method in R packages - randomForestSRC, but in 
 
 # Potential uses and summary
 
+In the era of Big Data and Artificial Intelligens, banks are prone to adopt evolving techniques as they help get better insights from data, reduce cost and increase overall profitability. With no doubts, using machine learning models is a must in financial world for in order to stay competitive.
+
+Machine Learning and Credit Risk is be a suitable marriage - for example, it can help in areas where traditional methods disappoint, like estimating measure of uncertainty of probability of default for new clients, for which not all data is available. 
+
+Our method is based on random forests and estimating confidence intervals using infinitesimal jackknife. In our analysis we proved that our method meets the requirements set by the client.
+
+> 1. Proposed method takes into account the scope of available information
+
+> 2. Proposed method takes into account the number of similar observations
+
+
 # Sources 
-Add the main one + what the dude had in his presentation
 
 ### Confidence intervals for Random Forest
 Wager, S., Hastie T., & Efron, B. (2014). Confidence Intervals for Random Forests: The Jackknife and the Infinitesimal Jackknife. J Mach Learn Res 15:1625-1651

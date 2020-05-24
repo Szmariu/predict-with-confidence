@@ -41,7 +41,7 @@ vignettes/*.pdf
 
 plots/
 
-markdown.html
+# markdown.html
 
 markdown_files/figure-html/
 
