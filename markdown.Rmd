@@ -17,11 +17,6 @@ knitr::opts_chunk$set(fig.width = 16)
 knitr::opts_chunk$set(fig.height = 9)
 ```
 
-```{r to_do, eval = F}
-To-do:
-  Poprawić tam gdzie jest eval=FALSE
-```
-
 # Problem definition 
 
 Probability of Default is a basic and crucial parameter used in Credit Risk. Traditionally, it is based on credit scorecards which are built with logistic regression. However, the scope of informations available for the bank is different for various clients. If the customer is our current client (e.g. he has a bank account), we can access the data concerning his behaviour and assets. Hence, we can assume that estimated probability of default for this client is more precise than for a corresponding customer that does not have an account at our bank. 
@@ -66,6 +61,7 @@ library(ggthemes)
 library(ggtech) # For the airbnb theme
 library(extrafont) # To add the font for Airbnb theme
 library(mice) # Imputation
+library(knitr)
 
 theme_set(theme_airbnb_fancy())
 pink = "#FF5A5F"
@@ -233,7 +229,7 @@ ggplot(res) +
 
 
 ### Experiment #4 - coverage of intervals
-```{r}
+```{r, eval = TRUE, cache = T}
 cv_results <- map(1:3, function(x) rf_cv(data, 3))
 
 for(i in 1:3){
@@ -281,7 +277,7 @@ To accomplish that we artificially remove value of some variables for 50% of the
 
 Table below shows a standard error conditional on if the observations had missing values. We can see that it is larger for group with missing data.
 
-```{r eval = F}
+```{r, eval = TRUE, cache = T, echo=T, results='hide'}
 # Read processed data
 data <- read_csv("data/processed/credit_default_clean.csv")
 # Remove id column
@@ -320,7 +316,10 @@ n_imputations=5
 
 imputed <- mice(as.data.frame(data_missing), m=n_imputations, maxit = 5, method = 'pmm', seed = 500)
 imputed <- 1:n_imputations %>% map(function(x) complete(imputed, action = x)[ind$test,])
+```
 
+
+```{r, eval = TRUE, cache = T}
 make_pred <- function(data){
   pred <- predict(rf, data=data, type ='se')
   tibble(se = pred$se[,2], pred = pred$predictions[,2])
@@ -351,16 +350,14 @@ test_result$had_na <- apply(is.na(data_missing[ind$test,]), 1, any)
 test_result %>% 
   group_by(had_na) %>%
   summarise(se = round(sqrt(mean(total_se^2)),3)) %>% 
-  print()
+  kable(caption = "RMSE depending if observation had missing values")
 
 ```
 
 Plot below shows confidence of the model on y-axis and probability of default on y-axis. We can still see that confidence is lower when probability is close to 50%, but also there is strong decrease in confidence if there are missing observations.
 
-```{r eval=FALSE}
+```{r, eval = TRUE, cache = T}
 test_result <- cbind(data[ind$test,],test_result)
-
-# TODO: title, labels etc.
 
 test_result %>% 
   ggplot(aes(x= agg_pred, y=total_se, color = had_na)) +
@@ -374,7 +371,7 @@ test_result %>%
 
 Finally, we repeat our previous analysis, where we bin observations by predicted probability of default and in those bins compare expected fraction of defaulters with true fraction. That way we can see ifour standard error estimates provide a good margin of conservatism.
 
-```{r eval=FALSE}
+```{r, eval = TRUE, cache = T}
 
 
 tmp <- test_result  %>% 
