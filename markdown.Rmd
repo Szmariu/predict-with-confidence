@@ -266,7 +266,7 @@ tmp %>%
   ggtitle("OOS probability of default vs True fraction of defaults")
 ```
 
-
+Next, we bin observations by predicted probability of default and in those bins compare expected fraction of defaulters with true fraction. That way we can see if our standard error estimates provide a good margin of conservatism.
 
 
 ### Experiment #4 - missing data
@@ -369,7 +369,8 @@ test_result %>%
   scale_x_continuous(labels = scales::percent_format(accuracy = 1))
 ```
 
-Finally, we repeat our previous analysis, where we bin observations by predicted probability of default and in those bins compare expected fraction of defaulters with true fraction. That way we can see ifour standard error estimates provide a good margin of conservatism.
+Finally, we repeat our previous analysis, where we bin observations by predicted probability of default and in those bins compare expected fraction of defaulters with true fraction. That way we can see if our standard error estimates provide a good margin of conservatism. We can see that our predictions 
+are less accurate for observations with missing values and the uncertainty is reflected by the width of confidence intervals.
 
 ```{r, eval = TRUE, cache = T}
 
